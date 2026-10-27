@@ -80,8 +80,9 @@ def read_jsonls(jsonl_files, worker):
     print(f'[Data Loading] Reading {len(jsonl_files)} meta files...')
     all_lines = []
     if len(jsonl_files) == 1:
-        lines_num = int(osp.splitext(jsonl_files[0])[0].split('_')[-1])
-        pbar = tqdm.tqdm(total=lines_num)
+        # Input JSONL filenames need not encode their line count.
+        pbar.close()
+        pbar = tqdm.tqdm(unit='lines')
         with open(jsonl_files[0], 'r') as f:
             for line in f:
                 pbar.update(1)
