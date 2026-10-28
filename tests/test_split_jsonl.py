@@ -13,7 +13,7 @@ SCRIPT = Path(__file__).resolve().parents[1] / 'tools' / 'split_jsonl.py'
 
 
 class SplitJsonlTest(unittest.TestCase):
-    def assert_split(self, inputs):
+    def assert_split(self, inputs, unterminated=()):
         with tempfile.TemporaryDirectory() as tmp:
             root = Path(tmp)
             source = root / 'input'
@@ -22,7 +22,10 @@ class SplitJsonlTest(unittest.TestCase):
             for filename, ids in inputs.items():
                 file_rows = [json.dumps({'id': i}) + '\n' for i in ids]
                 rows.extend(file_rows)
-                (source / filename).write_text(''.join(file_rows))
+                text = ''.join(file_rows)
+                if filename in unterminated:
+                    text = text.rstrip('\n')
+                (source / filename).write_text(text)
             output = root / 'output'
             argv = [str(SCRIPT), '--jsonl_folder_list', str(source),
                     '--save_dir', str(output), '--chunk_size', '2',
@@ -38,6 +41,16 @@ class SplitJsonlTest(unittest.TestCase):
             self.assertEqual(len(parts), (len(rows) + 1) // 2)
             for part in parts:
                 self.assertLessEqual(len(part.read_text().splitlines()), 2)
+                for line in part.read_text().splitlines():
+                    self.assertIsInstance(json.loads(line), dict)
+
+    def test_unterminated_records_from_multiple_files(self):
+        inputs = {f'part_{i}.jsonl': [i] for i in range(4)}
+        self.assert_split(inputs, unterminated=inputs)
+
+    def test_mixed_terminated_and_unterminated_files(self):
+        inputs = {f'part_{i}.jsonl': [i] for i in range(4)}
+        self.assert_split(inputs, unterminated={'part_0.jsonl', 'part_2.jsonl'})
 
     def test_plain_filename(self):
         self.assert_split({'metadata.jsonl': range(3)})
